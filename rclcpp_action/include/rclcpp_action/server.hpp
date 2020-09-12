@@ -386,9 +386,9 @@ protected:
         // Send result message to anyone that asked
         shared_this->publish_result(uuid, result_message);
         // Publish a status message any time a goal handle changes state
-        shared_this->publish_status();
+        //shared_this->publish_status();
         // notify base so it can recalculate the expired goal timer
-        shared_this->notify_goal_terminal_state();
+        //shared_this->notify_goal_terminal_state();
         // Delete data now (ServerBase and rcl_action_server_t keep data until goal handle expires)
         std::lock_guard<std::mutex> lock(shared_this->goal_handles_mutex_);
         shared_this->goal_handles_.erase(uuid);

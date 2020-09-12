@@ -537,6 +537,9 @@ ServerBase::publish_result(const GoalUUID & uuid, std::shared_ptr<void> result_m
       }
     }
   }
+
+  publish_status();
+  notify_goal_terminal_state();
 }
 
 void
