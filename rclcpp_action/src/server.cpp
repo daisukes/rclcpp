@@ -537,6 +537,11 @@ ServerBase::publish_result(const GoalUUID & uuid, std::shared_ptr<void> result_m
       }
     }
   }
+
+  // Publish a status message any time a goal handle changes state
+  publish_status();
+  // notify base so it can recalculate the expired goal timer
+  notify_goal_terminal_state();
 }
 
 void
