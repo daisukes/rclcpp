@@ -210,7 +210,7 @@ ServerBase::execute_goal_request_received()
   rcl_action_goal_info_t goal_info = rcl_action_get_zero_initialized_goal_info();
   rmw_request_id_t request_header;
 
-  std::lock_guard<std::recursive_mutex> lock(pimpl_->reentrant_mutex_);
+  std::unique_lock<std::recursive_mutex> lock(pimpl_->reentrant_mutex_);
 
   std::shared_ptr<void> message = create_goal_request();
   ret = rcl_action_take_goal_request(
@@ -232,8 +232,12 @@ ServerBase::execute_goal_request_received()
   GoalUUID uuid = get_goal_id_from_goal_request(message.get());
   convert(uuid, &goal_info);
 
+  lock.unlock();
+
   // Call user's callback, getting the user's response and a ros message to send back
   auto response_pair = call_handle_goal_callback(uuid, message);
+
+  lock.lock();
 
   ret = rcl_action_send_goal_response(
     pimpl_->action_server_.get(),
@@ -283,6 +287,8 @@ ServerBase::execute_goal_request_received()
     // publish status since a goal's state has changed (was accepted or has begun execution)
     publish_status();
 
+    lock.unlock();
+
     // Tell user to start executing action
     call_goal_accepted_callback(handle, uuid, message);
   }
@@ -297,7 +303,7 @@ ServerBase::execute_cancel_request_received()
   // Initialize cancel request
   auto request = std::make_shared<action_msgs::srv::CancelGoal::Request>();
 
-  std::lock_guard<std::recursive_mutex> lock(pimpl_->reentrant_mutex_);
+  std::unique_lock<std::recursive_mutex> lock(pimpl_->reentrant_mutex_);
   ret = rcl_action_take_cancel_request(
     pimpl_->action_server_.get(),
     &request_header,
@@ -339,6 +345,8 @@ ServerBase::execute_cancel_request_received()
     }
   });
 
+  lock.unlock();
+
   auto response = std::make_shared<action_msgs::srv::CancelGoal::Response>();
 
   response->return_code = cancel_response.msg.return_code;
@@ -357,6 +365,8 @@ ServerBase::execute_cancel_request_received()
       response->goals_canceling.push_back(cpp_info);
     }
   }
+
+  lock.lock();
 
   // If the user rejects all individual requests to cancel goals,
   // then we consider the top-level cancel request as rejected.
@@ -464,6 +474,8 @@ ServerBase::publish_status()
   // Get all goal handles known to C action server
   rcl_action_goal_handle_t ** goal_handles = NULL;
   size_t num_goals = 0;
+
+  std::lock_guard<std::recursive_mutex> lock(pimpl_->reentrant_mutex_);
   ret = rcl_action_server_get_goal_handles(
     pimpl_->action_server_.get(), &goal_handles, &num_goals);
 
